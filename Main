@@ -1,0 +1,303 @@
+#define _CRT_SECURE_NO_DEPRECATE
+#define _CRT_SECURE_NO_WARNINGS
+#include <string>
+#include <iostream>
+#include <stdio.h>
+
+
+using namespace std;
+
+struct Equipo
+{
+	char id[3];
+	char nombre[30];
+	int atk;
+	int def;
+};
+void CargarDatos(Equipo listaDeEquipos[], int &cantEquip, FILE *archivo);
+void GuardarDatos(Equipo listaDeEquipos[], FILE *archivo);
+void MostrarDatos(FILE *archivo, int cantEquip);
+void AgregarEquipo(Equipo listaDeEquipos[], int &cantEquip);
+int BuscarMismaID(Equipo listaDeEquipos[], char id[]);
+void ModificarEquipoExistente(Equipo listaDeEquipos[], int indice);
+void AgregarNuevoEquipo(Equipo listaDeEquipos[], char id[]);
+void EliminarEquipo(Equipo listaDeEquipos[], int &cantEquip); //CREEN EQUIPOS VACIOS Y AGREGUENLO CUANDO CONICIDA CON LA ID.
+
+int main()
+{
+	int input;
+	bool finished = false;
+	FILE * archivo;
+	Equipo listaDeEquipos[100];///PARA PROBAR SOLO HAGO QUE TENGAMOS 10 EQUIPOS PERO ESTO TIENE QUE SER 100
+	int cantEquip = 0;
+
+	archivo = fopen("EQUIPOS.bin", "rb");//LECTURA, DEBE EXISTIR
+	CargarDatos(listaDeEquipos, cantEquip, archivo);//CARGA LOS DATOS EXISTENTES, SINO EXISTEN CREA UN ARRAY CON 100 ELEM VACIOS
+
+	while (finished == false)
+	{
+		system("CLS");
+		while (std::cout << "1.Agregar equipo\n\n2.Eliminar equipo\n\n3.Ver equipos\n\n0.Salir\n\n\nElija una opción:\n" && !(std::cin >> input))
+		{
+			std::cout << "Opción inválida\n";
+			std::cin.get();
+			system("CLS");
+			std::cin.clear(); //clear bad input flag
+			std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //discard input
+
+		}
+		switch (input)
+		{
+		case 1:
+			AgregarEquipo(listaDeEquipos, cantEquip);
+			std::cin.get();
+			break;
+		case 2:
+			EliminarEquipo(listaDeEquipos, cantEquip);
+			std::cin.get();
+			break;
+		case 3:
+			MostrarDatos(archivo, cantEquip);
+			std::cin.get();
+			break;
+		case 0:
+			std::cin.get();
+			GuardarDatos(listaDeEquipos, archivo);
+			finished = true;
+			break;
+		default:
+			std::cout << "Opción inválida\n";
+			std::cin.get();
+			break;
+		}
+	}
+	return 0;
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void CargarDatos(Equipo listaDeEquipos[], int &cantEquip, FILE *archivo){
+
+	if (archivo == NULL){
+
+		Equipo equipoVacio;
+		for (int h = 0; h<3; h++){
+
+			equipoVacio.id[h] = '@';///EStO ES PARA QUE SE DISTINGA UN EQUIPO AGREGADO POR EL USUARIO Y UNO VACIO COMO EL NUESTRO
+		}
+		for (int j = 0; j < 30; j++){
+
+			equipoVacio.nombre[j] = ' ';
+		}
+		equipoVacio.atk = -1;
+		equipoVacio.def = -1;
+		for (int i = 0; i<10; i++){
+
+			listaDeEquipos[i] = equipoVacio;
+		}
+
+	}
+	else{
+
+		Equipo equipo;
+		fread(&equipo, sizeof(Equipo), 1, archivo);
+		for (int i = 0; i < 100; i++){
+			if (equipo.id[0] != '@') cantEquip++;//Cada vez que encuentro un equipo valido sumo a la cantidad de Equip
+			listaDeEquipos[i] = equipo;
+			fread(&equipo, sizeof(Equipo), 1, archivo);
+		}
+		fclose(archivo); // Cierro el rb que se abrio antes de este func.
+	}
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void GuardarDatos(Equipo listaDeEquipos[], FILE *archivo){
+
+	
+	archivo = fopen("EQUIPOS.bin", "wb");//ESCRITURA, LO CREA O PISA EL ANTERIOR
+	for (int i = 0; i < 100; i++){
+
+		fwrite(&listaDeEquipos[i], sizeof(struct Equipo), 1, archivo);
+	}
+	fclose(archivo);
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void MostrarDatos(FILE *archivo, int cantEquip){
+
+	archivo = fopen("EQUIPOS.bin", "rb");
+	Equipo equipo;
+	fread(&equipo, sizeof(Equipo), 1, archivo);
+	cout << "ID     Nombre               (Atk - Def)\n" << endl;
+	int bucle = 0;
+	while (!feof(archivo) && bucle < 100)
+	{
+		if(equipo.id[0] != '@' && equipo.id[1] != '@' && equipo.id[2] != '@')
+		{
+			cout << equipo.id[0] << equipo.id[1] << equipo.id[2] << "    ";
+			for (int j = 0; j < 30; j++){
+
+				if (j == 29)
+				{
+					cout << equipo.nombre[j];
+					cout << "(" << equipo.atk << " - " << equipo.def << " )";
+				}
+				else {
+					if (equipo.nombre[j] != (char)0 && equipo.nombre[j] != char(32))
+						cout << equipo.nombre[j];
+				}
+			}
+			printf("\n");
+			fread(&equipo, sizeof(Equipo), 1, archivo);
+		}
+		bucle++;
+	}
+	cout << "Total de equipos->\n" << cantEquip << endl;
+	fclose(archivo);
+	std::cin.get();
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void AgregarEquipo(Equipo listaDeEquipos[], int &cantEquip){
+
+	char id[4];
+	char respuesta;
+	cout << "Ingrese la ID del Equipo" << endl;
+	std::cin >> id;
+	int indice = BuscarMismaID(listaDeEquipos, id);
+	if (0 <= indice){
+
+		cout << "Este equipo ya existe. Si desea modificarlo preisone 's' de lo contrario presione 'n'" << endl;
+		std::cin >> respuesta;
+		if (respuesta == 's') ModificarEquipoExistente(listaDeEquipos, indice);
+	}
+	else{
+		if (cantEquip < 100){
+
+			AgregarNuevoEquipo(listaDeEquipos, id);
+			cantEquip++;
+		}
+		else cout << "no hay espacio, intente eliminar alguno de los equipos ya cargados" << endl;
+	}
+}
+
+void EliminarEquipo(Equipo listaDeEquipos[], int &cantEquip){
+
+	
+	char idin[4];
+	char respuesta;
+	cout << "Ingrese la ID del Equipo" << endl;
+	std::cin >> idin;
+	bool hayEquipo = false;
+	if (cantEquip != 0)
+	while (!hayEquipo)
+	{
+		for (int i = 0; i < cantEquip; i++)
+		{
+			if ((listaDeEquipos[i].id[0] == idin[0]) && (listaDeEquipos[i].id[1] == idin[1]) && (listaDeEquipos[i].id[2] == idin[2]))
+			{
+				listaDeEquipos[i].id[0] = char(0);
+				listaDeEquipos[i].id[1] = char(0);
+				listaDeEquipos[i].id[2] = char(0);
+				listaDeEquipos[i].atk = 0;
+				listaDeEquipos[i].def = 0;
+				for (int indNom = 0; indNom < 30; indNom++)
+				{
+					listaDeEquipos[i].nombre[indNom] = char(0);
+				}
+				hayEquipo = true;
+			}
+		}
+		//hayEquipo = true;
+		if (!hayEquipo)
+		{ 
+		system("CLS");
+		cout << "No existe esa ID, ingresar nuevamente\n";
+		std::cin.clear();
+		std::cin >> idin;
+		}
+	}
+	for (int i = 0; i < 3; i++)
+	{
+		idin[i] = char(0);
+	}
+	cout << "El equipo fue eliminado";
+}
+
+
+int BuscarMismaID(Equipo listaDeEquipos[], char id[]){///Se me ocurrio que cuando busco el equipo devuelvo su
+	///indice del array si esta, asi me queda mas facil de modificarlo, si no es devuelve un -1 y no entra a ningun lado
+	int estaElEquip = -1;
+	for (int i = 0; i < 10; i++){
+
+		if ((listaDeEquipos[i].id[0] == id[0]) && (listaDeEquipos[i].id[1] == id[1]) && (listaDeEquipos[i].id[2] == id[2])) estaElEquip = i;
+	}
+	return estaElEquip;
+}
+
+void ModificarEquipoExistente(Equipo listaDeEquipos[], int indice){
+
+	char res;
+	cout << "desea modificar el nombre acttual? nombre-> " << listaDeEquipos[indice].nombre << " " << "preisone 's' de lo contrario presione 'n'" << endl;
+	std::cin >> res;
+	if (res == 's'){
+
+		cout << "ingrese nombre nuevo" << endl;
+		for (int j = 0; j < 30; j++){
+
+			listaDeEquipos[indice].nombre[j] = ' ';
+		}
+		std::cin >> listaDeEquipos[indice].nombre;
+	}
+	cout << "desea modificar el Ataque? Ataque-> " << listaDeEquipos[indice].atk << " " << "preisone 's' de lo contrario presione 'n'" << endl;
+	std::cin >> res;
+	if (res == 's'){
+
+		cout << "ingrese Ataque nuevo" << endl;
+		std::cin >> listaDeEquipos[indice].atk;
+	}
+	cout << "desea modificar la Defensa acttual? Defensa-> " << listaDeEquipos[indice].def << " " << "preisone 's' de lo contrario presione 'n'" << endl;
+	std::cin >> res;
+	if (res == 's'){
+
+		cout << "ingrese Defensa nuevA" << endl;
+		std::cin >> listaDeEquipos[indice].def;
+	}
+}
+
+void AgregarNuevoEquipo(Equipo listaDeEquipos[], char id[]){
+
+	for (int i = 0; i < 100; i++){
+		int unoSoloAgrego = 100;
+		if ((listaDeEquipos[i].id[0] == '@') && (listaDeEquipos[i].id[1] == '@') && (listaDeEquipos[i].id[2] == '@')){
+
+			listaDeEquipos[i].id[0] = id[0];
+			listaDeEquipos[i].id[1] = id[1];
+			listaDeEquipos[i].id[2] = id[2];
+
+			cout << "ingrese nombre nuevo" << endl;
+			std::cin >> listaDeEquipos[i].nombre;
+
+			cout << "ingrese Ataque nuevo" << endl;
+			std::cin >> listaDeEquipos[i].atk;
+			while (std::cin.fail() || (listaDeEquipos[i].def < 0 || listaDeEquipos[i].def > 100))
+			{
+				std::cin.clear();
+				std::cin.ignore(numeric_limits<streamsize>::max(), '\n');
+				std::cout << "Se debe ingresar un numero.";
+				std::cin >> listaDeEquipos[i].atk;
+			}
+
+
+			cout << "ingrese Defensa nuevo" << endl;
+			std::cin >> listaDeEquipos[i].def;
+			while (std::cin.fail() || (listaDeEquipos[i].def < 0 || listaDeEquipos[i].def > 100))
+			{
+				std::cin.clear();
+				std::cin.ignore(numeric_limits<streamsize>::max(), '\n');
+				std::cout << "Se debe ingresar un numero entre 0 y 100.";
+				std::cin >> listaDeEquipos[i].def;
+			}
+			i = unoSoloAgrego;
+		}
+	}
+}
+
+
